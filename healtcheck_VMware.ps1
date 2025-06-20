@@ -1,11 +1,14 @@
 # Verificar e importar PowerCLI
+Write-Host 'Verificando PowerCLI...' -ForegroundColor Cyan
 if (-not (Get-Module -ListAvailable -Name VMware.VimAutomation.Core)) {
     Write-Host 'PowerCLI no está instalado. Instalando...' -ForegroundColor Yellow
     Install-Module -Name VMware.PowerCLI -Scope CurrentUser -Force
 }
 Import-Module VMware.VimAutomation.Core -ErrorAction Stop
+Write-Host 'PowerCLI listo.' -ForegroundColor Green
 
 # Solicitar credenciales con popup
+Write-Host 'Solicitando credenciales de vCenter/ESXi...' -ForegroundColor Cyan
 $cred = Get-Credential -Message 'Introduce las credenciales de vCenter/ESXi'
 
 # Valores por defecto
@@ -21,11 +24,17 @@ if ([string]::IsNullOrWhiteSpace($reporteHtml)) { $reporteHtml = $reporteHtmlDef
 $reportePath = Join-Path -Path $directorio -ChildPath $reporteHtml
 
 # Crear el directorio si no existe
+Write-Host "Verificando directorio de guardado: $directorio" -ForegroundColor Cyan
 if (-not (Test-Path $directorio)) {
+    Write-Host 'Directorio no existe. Creando...' -ForegroundColor Yellow
     New-Item -Path $directorio -ItemType Directory -Force | Out-Null
+    Write-Host 'Directorio creado.' -ForegroundColor Green
+} else {
+    Write-Host 'Directorio existente.' -ForegroundColor Green
 }
 
 # Conectar a vCenter/ESXi
+Write-Host "Conectando a vCenter/ESXi ($vcHost)..." -ForegroundColor Cyan
 try {
     Connect-VIServer -Server $vcHost -Credential $cred -ErrorAction Stop | Out-Null
     Write-Host "Conexión exitosa a $vcHost" -ForegroundColor Green
@@ -35,18 +44,22 @@ try {
 }
 
 # Obtener todas las VMs, filtrando apagadas y las que empiezan por vcls
+Write-Host 'Obteniendo lista de VMs encendidas (sin vcls)...' -ForegroundColor Cyan
 $vms = Get-VM | Where-Object { $_.PowerState -eq 'PoweredOn' -and -not ($_.Name -like 'vcls*') }
-Write-Host "Se encontraron $($vms.Count) VMs encendidas (sin vcls)"
+Write-Host "Se encontraron $($vms.Count) VMs encendidas (sin vcls)" -ForegroundColor Green
 
 # Definir el rango de tiempo para las métricas (últimas 24 horas)
+Write-Host 'Definiendo rango de tiempo para métricas (últimas 24 horas)...' -ForegroundColor Cyan
 $end = Get-Date
 $start = $end.AddHours(-24)
 
 # Inicializar arrays para almacenar los datos
+Write-Host 'Recolectando métricas de cada VM...' -ForegroundColor Cyan
 $metricas = @()
 $hayVmsSinIops = $false
 
 foreach ($vm in $vms) {
+    Write-Host "Procesando VM: $($vm.Name)" -ForegroundColor Gray
     # CPU Ready (en ms, sumado en 24h, convertido a porcentaje estimado)
     $cpuReady = (Get-Stat -Entity $vm -Stat cpu.ready.summation -Start $start -Finish $end | 
         Measure-Object -Property Value -Average).Average
@@ -89,11 +102,15 @@ if ($hayVmsSinIops) {
 }
 
 # Top 10 de cada métrica
+Write-Host 'Calculando top 10 de cada métrica...' -ForegroundColor Cyan
 $topCPU = $metricas | Sort-Object -Property CPUReady -Descending | Select-Object -First 10
 $topRAMAsignada = $metricas | Sort-Object -Property RAM_Asignada -Descending | Select-Object -First 10
 $topRAMConsumida = $metricas | Sort-Object -Property RAM_Consumida -Descending | Select-Object -First 10
 $topNet = $metricas | Sort-Object -Property NetUsage -Descending | Select-Object -First 10
 $topIOPS = $metricas | Sort-Object -Property IOPS -Descending | Select-Object -First 10
+
+# Generar HTML
+Write-Host 'Generando reporte HTML...' -ForegroundColor Cyan
 
 # Función para generar tabla HTML
 function Generar-TablaHtml($titulo, $coleccion, $col1, $col2) {
@@ -113,7 +130,6 @@ function Generar-ChartData($coleccion, $col2) {
     return @{labels=$labels; data=$data}
 }
 
-# Generar HTML
 $html = @"
 <html>
 <head>
@@ -167,13 +183,15 @@ $(
 "@
 
 # Guardar el HTML
+Write-Host "Guardando reporte en: $reportePath" -ForegroundColor Cyan
 Set-Content -Path $reportePath -Value $html -Encoding UTF8
 Write-Host "Reporte generado: $reportePath" -ForegroundColor Green
 
 # Abrir el HTML en el navegador predeterminado
+Write-Host 'Abriendo el reporte en el navegador...' -ForegroundColor Cyan
 try {
     Start-Process $reportePath
-    Write-Host "Abriendo el reporte en el navegador..." -ForegroundColor Cyan
+    Write-Host "Reporte abierto en el navegador." -ForegroundColor Green
 } catch {
     Write-Host "No se pudo abrir el archivo automáticamente. Ábrelo manualmente en: $reportePath" -ForegroundColor Yellow
 } 
