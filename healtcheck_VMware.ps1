@@ -5,17 +5,29 @@ if (-not (Get-Module -ListAvailable -Name VMware.VimAutomation.Core)) {
 }
 Import-Module VMware.VimAutomation.Core -ErrorAction Stop
 
-# Solicitar datos de conexión y nombre del archivo HTML y directorio
+# Solicitar credenciales con popup
+$cred = Get-Credential -Message 'Introduce las credenciales de vCenter/ESXi'
+
+# Valores por defecto
+$directorioDefecto = "$HOME\ReportesVMware"
+$reporteHtmlDefecto = "reporte_vmware.html"
+
+# Solicitar datos de conexión y nombre del archivo HTML y directorio (con valores por defecto)
 $vcHost = Read-Host 'vCenter/ESXi host'
-$vcUser = Read-Host 'Usuario'
-$vcPass = Read-Host 'Contraseña' -AsSecureString
-$directorio = Read-Host 'Directorio donde guardar el reporte (ej: C:\Reportes)'
-$reporteHtml = Read-Host 'Nombre del archivo HTML para el reporte (ej: reporte_vmware.html)'
+$directorio = Read-Host "Directorio donde guardar el reporte (Enter para '$directorioDefecto')"
+if ([string]::IsNullOrWhiteSpace($directorio)) { $directorio = $directorioDefecto }
+$reporteHtml = Read-Host "Nombre del archivo HTML para el reporte (Enter para '$reporteHtmlDefecto')"
+if ([string]::IsNullOrWhiteSpace($reporteHtml)) { $reporteHtml = $reporteHtmlDefecto }
 $reportePath = Join-Path -Path $directorio -ChildPath $reporteHtml
+
+# Crear el directorio si no existe
+if (-not (Test-Path $directorio)) {
+    New-Item -Path $directorio -ItemType Directory -Force | Out-Null
+}
 
 # Conectar a vCenter/ESXi
 try {
-    Connect-VIServer -Server $vcHost -User $vcUser -Password $vcPass -ErrorAction Stop | Out-Null
+    Connect-VIServer -Server $vcHost -Credential $cred -ErrorAction Stop | Out-Null
     Write-Host "Conexión exitosa a $vcHost" -ForegroundColor Green
 } catch {
     Write-Host ('Error al conectar a ' + $vcHost + ': ' + $_.Exception.Message) -ForegroundColor Red
