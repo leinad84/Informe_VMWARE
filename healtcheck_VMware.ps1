@@ -44,6 +44,7 @@ $start = $end.AddHours(-24)
 
 # Inicializar arrays para almacenar los datos
 $metricas = @()
+$hayVmsSinIops = $false
 
 foreach ($vm in $vms) {
     # CPU Ready (en ms, sumado en 24h, convertido a porcentaje estimado)
@@ -57,11 +58,21 @@ foreach ($vm in $vms) {
     # Consumo de red (KBps, promedio en 24h)
     $netUsage = (Get-Stat -Entity $vm -Stat net.usage.average -Start $start -Finish $end | 
         Measure-Object -Property Value -Average).Average
-    # IOPS (suma de lecturas y escrituras en 24h, promedio)
-    $iopsRead = (Get-Stat -Entity $vm -Stat disk.numberRead.summation -Start $start -Finish $end | 
-        Measure-Object -Property Value -Average).Average
-    $iopsWrite = (Get-Stat -Entity $vm -Stat disk.numberWrite.summation -Start $start -Finish $end | 
-        Measure-Object -Property Value -Average).Average
+    # IOPS (manejar error si la métrica no existe)
+    try {
+        $iopsRead = (Get-Stat -Entity $vm -Stat disk.numberRead.summation -Start $start -Finish $end -ErrorAction Stop | 
+            Measure-Object -Property Value -Average).Average
+    } catch {
+        $iopsRead = 0
+        $hayVmsSinIops = $true
+    }
+    try {
+        $iopsWrite = (Get-Stat -Entity $vm -Stat disk.numberWrite.summation -Start $start -Finish $end -ErrorAction Stop | 
+            Measure-Object -Property Value -Average).Average
+    } catch {
+        $iopsWrite = 0
+        $hayVmsSinIops = $true
+    }
     $iops = $iopsRead + $iopsWrite
     $metricas += [PSCustomObject]@{
         VM = $vm.Name
@@ -71,6 +82,10 @@ foreach ($vm in $vms) {
         NetUsage = [math]::Round($netUsage,2)
         IOPS = [math]::Round($iops,2)
     }
+}
+
+if ($hayVmsSinIops) {
+    Write-Host "Advertencia: Una o más VMs no tienen disponible la métrica de IOPS. Se mostrará como 0 en el informe." -ForegroundColor Yellow
 }
 
 # Top 10 de cada métrica
