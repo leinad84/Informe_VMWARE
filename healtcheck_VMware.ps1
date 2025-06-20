@@ -1,8 +1,17 @@
-# Solicitar datos de conexión y nombre del archivo HTML
+# Verificar e importar PowerCLI
+if (-not (Get-Module -ListAvailable -Name VMware.VimAutomation.Core)) {
+    Write-Host 'PowerCLI no está instalado. Instalando...' -ForegroundColor Yellow
+    Install-Module -Name VMware.PowerCLI -Scope CurrentUser -Force
+}
+Import-Module VMware.VimAutomation.Core -ErrorAction Stop
+
+# Solicitar datos de conexión y nombre del archivo HTML y directorio
 $vcHost = Read-Host 'vCenter/ESXi host'
 $vcUser = Read-Host 'Usuario'
 $vcPass = Read-Host 'Contraseña' -AsSecureString
+$directorio = Read-Host 'Directorio donde guardar el reporte (ej: C:\Reportes)'
 $reporteHtml = Read-Host 'Nombre del archivo HTML para el reporte (ej: reporte_vmware.html)'
+$reportePath = Join-Path -Path $directorio -ChildPath $reporteHtml
 
 # Conectar a vCenter/ESXi
 try {
@@ -131,5 +140,13 @@ $(
 "@
 
 # Guardar el HTML
-Set-Content -Path $reporteHtml -Value $html -Encoding UTF8
-Write-Host "Reporte generado: $reporteHtml" -ForegroundColor Green 
+Set-Content -Path $reportePath -Value $html -Encoding UTF8
+Write-Host "Reporte generado: $reportePath" -ForegroundColor Green
+
+# Abrir el HTML en el navegador predeterminado
+try {
+    Start-Process $reportePath
+    Write-Host "Abriendo el reporte en el navegador..." -ForegroundColor Cyan
+} catch {
+    Write-Host "No se pudo abrir el archivo automáticamente. Ábrelo manualmente en: $reportePath" -ForegroundColor Yellow
+} 
