@@ -109,10 +109,24 @@ $topRAMConsumida = $metricas | Sort-Object -Property RAM_Consumida -Descending |
 $topNet = $metricas | Sort-Object -Property NetUsage -Descending | Select-Object -First 10
 $topIOPS = $metricas | Sort-Object -Property IOPS -Descending | Select-Object -First 10
 
+# Preparar datos para las gráficas en formato JS
+function Get-ChartLabels { param($coleccion) ($coleccion | ForEach-Object { '"' + $_.VM + '"' }) -join ',' }
+function Get-ChartData { param($coleccion, $col) ($coleccion | ForEach-Object { $_.$col }) -join ',' }
+
+$cpuLabels = Get-ChartLabels $topCPU
+$cpuData = Get-ChartData $topCPU 'CPUReady'
+$ramAsignadaLabels = Get-ChartLabels $topRAMAsignada
+$ramAsignadaData = Get-ChartData $topRAMAsignada 'RAM_Asignada'
+$ramConsumidaLabels = Get-ChartLabels $topRAMConsumida
+$ramConsumidaData = Get-ChartData $topRAMConsumida 'RAM_Consumida'
+$netLabels = Get-ChartLabels $topNet
+$netData = Get-ChartData $topNet 'NetUsage'
+$iopsLabels = Get-ChartLabels $topIOPS
+$iopsData = Get-ChartData $topIOPS 'IOPS'
+
 # Generar HTML
 Write-Host 'Generando reporte HTML...' -ForegroundColor Cyan
 
-# Función para generar tabla HTML
 function Generar-TablaHtml($titulo, $coleccion, $col1, $col2) {
     $tabla = "<h2>$titulo</h2>"
     $tabla += "<table border='1' style='border-collapse:collapse;'><tr><th>VM</th><th>$col2</th></tr>"
@@ -121,13 +135,6 @@ function Generar-TablaHtml($titulo, $coleccion, $col1, $col2) {
     }
     $tabla += "</table>"
     return $tabla
-}
-
-# Función para generar datos de gráfica para Chart.js
-function Generar-ChartData($coleccion, $col2) {
-    $labels = ($coleccion | ForEach-Object { '"' + $_.VM + '"' }) -join ','
-    $data = ($coleccion | ForEach-Object { $_.$col2 }) -join ','
-    return @{labels=$labels; data=$data}
 }
 
 $html = @"
@@ -170,13 +177,13 @@ function crearGrafica(id, labels, data, label) {
         options: {responsive:true, plugins:{legend:{display:false}}}
     });
 }
-$(
-    crearGrafica('cpuChart', $((Generar-ChartData $topCPU 'CPUReady').labels), $((Generar-ChartData $topCPU 'CPUReady').data), 'CPU Ready (ms)');
-    crearGrafica('ramAsignadaChart', $((Generar-ChartData $topRAMAsignada 'RAM_Asignada').labels), $((Generar-ChartData $topRAMAsignada 'RAM_Asignada').data), 'RAM Asignada (MB)');
-    crearGrafica('ramConsumidaChart', $((Generar-ChartData $topRAMConsumida 'RAM_Consumida').labels), $((Generar-ChartData $topRAMConsumida 'RAM_Consumida').data), 'RAM Consumida (MB)');
-    crearGrafica('netChart', $((Generar-ChartData $topNet 'NetUsage').labels), $((Generar-ChartData $topNet 'NetUsage').data), 'Consumo de Red (KBps)');
-    crearGrafica('iopsChart', $((Generar-ChartData $topIOPS 'IOPS').labels), $((Generar-ChartData $topIOPS 'IOPS').data), 'IOPS');
-)
+window.onload = function() {
+    crearGrafica('cpuChart', $cpuLabels, $cpuData, 'CPU Ready (ms)');
+    crearGrafica('ramAsignadaChart', $ramAsignadaLabels, $ramAsignadaData, 'RAM Asignada (MB)');
+    crearGrafica('ramConsumidaChart', $ramConsumidaLabels, $ramConsumidaData, 'RAM Consumida (MB)');
+    crearGrafica('netChart', $netLabels, $netData, 'Consumo de Red (KBps)');
+    crearGrafica('iopsChart', $iopsLabels, $iopsData, 'IOPS');
+}
 </script>
 </body>
 </html>
