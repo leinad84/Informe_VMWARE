@@ -167,6 +167,18 @@ $html = @"
 <head>
 <title>Healthcheck VMware</title>
 <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+<style>
+    body { font-family: Arial, Helvetica, sans-serif; background: #fafbfc; margin: 0; padding: 0; }
+    h1 { color: #222; margin-top: 30px; text-align: center; }
+    h2 { color: #1a4e8a; margin-top: 40px; }
+    p { color: #444; text-align: center; }
+    table { margin: 20px auto 40px auto; border-collapse: collapse; min-width: 350px; box-shadow: 0 2px 8px #e0e0e0; background: #fff; }
+    th, td { padding: 10px 18px; border: 1px solid #bfc9d1; text-align: center; }
+    th { background: #1976d2; color: #fff; font-weight: bold; }
+    tr:nth-child(even) { background: #f4f8fb; }
+    tr:hover { background: #e3f2fd; }
+    canvas { display: block; margin: 0 auto 40px auto; max-width: 700px; max-height: 350px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; }
+</style>
 </head>
 <body>
 <h1>Reporte Healthcheck VMware</h1>
@@ -188,6 +200,7 @@ $(Generar-TablaHtml 'Top 10 IOPS' $topIOPS 'VM' 'IOPS')
 <canvas id='iopsChart'></canvas>
 
 <script>
+// Declarar los datos como variables JS
 var cpuLabels = $cpuLabels;
 var cpuData = $cpuData;
 var ramAsignadaLabels = $ramAsignadaLabels;
@@ -200,26 +213,41 @@ var iopsLabels = $iopsLabels;
 var iopsData = $iopsData;
 
 function crearGrafica(id, labels, data, label) {
-    new Chart(document.getElementById(id), {
+    var ctx = document.getElementById(id);
+    if (!ctx) return;
+    new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
                 label: label,
                 data: data,
-                backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
             }]
         },
-        options: {responsive:true, plugins:{legend:{display:false}}}
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: { display: false }
+            },
+            scales: {
+                x: { ticks: { color: '#222', font: { weight: 'bold' } } },
+                y: { beginAtZero: true, ticks: { color: '#222' } }
+            }
+        }
     });
 }
-window.onload = function() {
+
+document.addEventListener('DOMContentLoaded', function() {
     crearGrafica('cpuChart', cpuLabels, cpuData, 'CPU Ready (ms)');
     crearGrafica('ramAsignadaChart', ramAsignadaLabels, ramAsignadaData, 'RAM Asignada (MB)');
     crearGrafica('ramConsumidaChart', ramConsumidaLabels, ramConsumidaData, 'RAM Consumida (MB)');
     crearGrafica('netChart', netLabels, netData, 'Consumo de Red (KBps)');
     crearGrafica('iopsChart', iopsLabels, iopsData, 'IOPS');
-}
+});
 </script>
 </body>
 </html>
