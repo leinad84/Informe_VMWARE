@@ -196,6 +196,9 @@ $(Generar-TablaHtml 'Top 10 RAM Consumida (MB)' $topRAMConsumida 'VM' 'RAM_Consu
 $(Generar-TablaHtml 'Top 10 Consumo de Red (KBps)' $topNet 'VM' 'NetUsage')
 <canvas id='netChart' width='900' height='400'></canvas>
 
+$(Generar-TablaHtml 'Top 10 IOPS' $topIOPS 'VM' 'IOPS')
+<canvas id='iopsChart' width='900' height='400'></canvas>
+
 <script>
 // Declarar los datos como variables JS
 var cpuLabels = $cpuLabels;
@@ -206,6 +209,8 @@ var ramConsumidaLabels = $ramConsumidaLabels;
 var ramConsumidaData = $ramConsumidaData;
 var netLabels = $netLabels;
 var netData = $netData;
+var iopsLabels = $iopsLabels;
+var iopsData = $iopsData;
 
 function crearGrafica(id, labels, data, label) {
     var ctx = document.getElementById(id);
@@ -241,6 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
     crearGrafica('ramAsignadaChart', ramAsignadaLabels, ramAsignadaData, 'RAM Asignada (MB)');
     crearGrafica('ramConsumidaChart', ramConsumidaLabels, ramConsumidaData, 'RAM Consumida (MB)');
     crearGrafica('netChart', netLabels, netData, 'Consumo de Red (KBps)');
+    crearGrafica('iopsChart', iopsLabels, iopsData, 'IOPS');
 });
 </script>
 </body>
@@ -413,33 +419,3 @@ function Generar-Informe-IOPS-Detallado {
 # Generar siempre el informe detallado de IOPS y mostrar progreso
 Write-Host 'Iniciando generación del informe detallado de IOPS por 1 hora...' -ForegroundColor Cyan
 Generar-Informe-IOPS-Detallado -directorio $directorio 
-
-# Exportar tablas principales a Excel o CSV
-try {
-    if (Get-Module -ListAvailable -Name ImportExcel) {
-        Write-Host 'Exportando tablas a Excel...' -ForegroundColor Cyan
-        $topCPU | Export-Excel -Path (Join-Path $directorio 'TopCPU.xlsx') -WorksheetName 'CPU' -AutoSize -Force
-        $topRAMAsignada | Export-Excel -Path (Join-Path $directorio 'TopRAMAsignada.xlsx') -WorksheetName 'RAM_Asignada' -AutoSize -Force
-        $topRAMConsumida | Export-Excel -Path (Join-Path $directorio 'TopRAMConsumida.xlsx') -WorksheetName 'RAM_Consumida' -AutoSize -Force
-        $topNet | Export-Excel -Path (Join-Path $directorio 'TopNet.xlsx') -WorksheetName 'Red' -AutoSize -Force
-    } else {
-        Write-Host 'Módulo ImportExcel no disponible. Exportando tablas a CSV...' -ForegroundColor Yellow
-        $topCPU | Export-Csv -Path (Join-Path $directorio 'TopCPU.csv') -NoTypeInformation -Force
-        $topRAMAsignada | Export-Csv -Path (Join-Path $directorio 'TopRAMAsignada.csv') -NoTypeInformation -Force
-        $topRAMConsumida | Export-Csv -Path (Join-Path $directorio 'TopRAMConsumida.csv') -NoTypeInformation -Force
-        $topNet | Export-Csv -Path (Join-Path $directorio 'TopNet.csv') -NoTypeInformation -Force
-    }
-} catch {
-    Write-Host 'Error exportando tablas a Excel/CSV: ' $_ -ForegroundColor Red
-}
-
-# Exportar tabla de IOPS detallada a Excel o CSV tras generarla
-try {
-    if (Get-Module -ListAvailable -Name ImportExcel) {
-        $iopsTableData | Export-Excel -Path (Join-Path $directorio 'IOPSDetallado.xlsx') -WorksheetName 'IOPS' -AutoSize -Force
-    } else {
-        $iopsTableData | Export-Csv -Path (Join-Path $directorio 'IOPSDetallado.csv') -NoTypeInformation -Force
-    }
-} catch {
-    Write-Host 'Error exportando tabla de IOPS a Excel/CSV: ' $_ -ForegroundColor Red
-} 
