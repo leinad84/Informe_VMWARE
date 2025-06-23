@@ -324,13 +324,17 @@ function Generar-Informe-IOPS-Detallado {
 
     # Procesar CSV y generar HTML
     $iopsTableData = Import-Csv $file | Group-Object -Property VM | ForEach-Object {
+        # Convertir a double y manejar vacíos
+        $readArr = $_.Group.ReadIOPS | ForEach-Object { if ($_ -ne $null -and $_ -ne '') { [double]$_ } else { 0 } }
+        $writeArr = $_.Group.WriteIOPS | ForEach-Object { if ($_ -ne $null -and $_ -ne '') { [double]$_ } else { 0 } }
+        Write-Host "VM: $($_.Name) ReadIOPS: $($readArr -join ',') WriteIOPS: $($writeArr -join ',')" -ForegroundColor DarkGray
         [PSCustomObject]@{
             VMName = $_.Name
             Cluster = ($_.Group | Select-Object -First 1).Cluster
             Datastore = ($_.Group | Select-Object -First 1).Datastore
-            TotalReadIOPS = ($_.Group.ReadIOPS | Measure-Object -Sum).Sum
-            TotalWriteIOPS = ($_.Group.WriteIOPS | Measure-Object -Sum).Sum
-            TotalIOPS = ($_.Group.ReadIOPS | Measure-Object -Sum).Sum + ($_.Group.WriteIOPS | Measure-Object -Sum).Sum
+            TotalReadIOPS = ($readArr | Measure-Object -Sum).Sum
+            TotalWriteIOPS = ($writeArr | Measure-Object -Sum).Sum
+            TotalIOPS = ($readArr | Measure-Object -Sum).Sum + ($writeArr | Measure-Object -Sum).Sum
         }
     } | Sort-Object -Property TotalIOPS -Descending
     $iopsChartData = $iopsTableData | Select-Object -First 10
@@ -351,7 +355,7 @@ function Generar-Informe-IOPS-Detallado {
         th { background: #1976d2; color: #fff; font-weight: bold; }
         tr:nth-child(even) { background: #f4f8fb; }
         tr:hover { background: #e3f2fd; }
-        #iopsChart { max-width: 900px; margin: 20px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; }
+        #iopsChart { display: block; margin: 20px auto; max-width: 900px; max-height: 400px; width: 900px; height: 400px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; }
     </style>
 </head>
 <body>
