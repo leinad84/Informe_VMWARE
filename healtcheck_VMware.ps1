@@ -135,8 +135,8 @@ $topNet = $metricas | Sort-Object -Property NetUsage -Descending | Select-Object
 $topIOPS = $metricas | Sort-Object -Property IOPS -Descending | Select-Object -First 10
 
 # Preparar datos para las gráficas en formato JS
-function Get-ChartLabels { param($coleccion) '[' + ($coleccion | ForEach-Object { '"' + $_.VM + '"' }) -join ',' + ']' }
-function Get-ChartData { param($coleccion, $col) '[' + ($coleccion | ForEach-Object { $_.$col }) -join ',' + ']' }
+function Get-ChartLabels { param($coleccion) ($coleccion | ForEach-Object { $_.VM }) | ConvertTo-Json -Compress }
+function Get-ChartData { param($coleccion, $col) ($coleccion | ForEach-Object { $_.$col }) | ConvertTo-Json -Compress }
 
 $cpuLabels = Get-ChartLabels $topCPU
 $cpuData = Get-ChartData $topCPU 'CPUReady'
