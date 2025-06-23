@@ -265,4 +265,153 @@ try {
     Write-Host "Reporte abierto en el navegador." -ForegroundColor Green
 } catch {
     Write-Host "No se pudo abrir el archivo automáticamente. Ábrelo manualmente en: $reportePath" -ForegroundColor Yellow
-} 
+}
+
+# --- FUNCIÓN PARA INFORME DETALLADO DE IOPS POR 1 HORA ---
+function Generar-Informe-IOPS-Detallado {
+    param(
+        [string]$directorio
+    )
+    $samples = 180 # 1 hora, cada 20 segundos
+    $file = Join-Path $directorio 'Collect-IOPS.csv'
+    $htmlOutput = Join-Path $directorio 'vm_iops_report.html'
+    
+    # Crear archivo CSV con encabezados
+    New-Item -Path $file -ItemType File -Force | Out-Null
+    Set-Content -Path $file -Value "TimeStamp,Cluster,VM,Disk,Datastore,ReadIOPS,WriteIOPS"
+    Write-Host "Colectando $samples muestras de IOPS (1 hora)..." -ForegroundColor Cyan
+
+    function Collect-IOPS {
+        $vms = Get-VM | Where-Object {$_.PowerState -eq "PoweredOn"}
+        if ($vms.Count -eq 0) { Write-Host "No se encontraron máquinas virtuales encendidas."; return }
+        $vmClusters = @{}
+        foreach ($vm in $vms) {
+            $cluster = Get-Cluster -VM $vm
+            $vmClusters[$vm.Name] = $cluster.Name
+        }
+        $metrics = "virtualdisk.numberreadaveraged.average","virtualdisk.numberwriteaveraged.average"
+        $stats = Get-Stat -Realtime -Stat $metrics -Entity $vms -MaxSamples 1
+        if ($stats.Count -eq 0) { Write-Host "No se encontraron datos para las métricas solicitadas."; return }
+        $interval = $stats[0].IntervalSecs
+        $hdTab = @{}
+        foreach ($hd in Get-HardDisk -VM $vms) {
+            $controllerKey = $hd.Extensiondata.ControllerKey
+            $controller = $hd.Parent.Extensiondata.Config.Hardware.Device | Where-Object { $_.Key -eq $controllerKey }
+            $hdTab[$hd.Parent.Name + "/scsi" + $controller.BusNumber + ":" + $hd.Extensiondata.UnitNumber] = $hd.FileName.Split(']')[0].TrimStart('[')
+        }
+        $iops = $stats | Group-Object -Property Entity, Instance
+        foreach ($collected in $iops) {
+            $sorted = $collected.Group | Sort-Object -Property MetricId | Group-Object -Property Timestamp
+            $readios = ($sorted.Group | Where-Object { $_.MetricId -eq "virtualdisk.numberreadaveraged.average" }).Value
+            $writeios = ($sorted.Group | Where-Object { $_.MetricId -eq "virtualdisk.numberwriteaveraged.average" }).Value
+            $timestamp = $collected.Group[0].Timestamp
+            $vmname = $collected.Group[0].Entity.Name
+            $vmdisk = $collected.Values[1]
+            $ds = $hdTab[$vmname + "/" + $vmdisk]
+            $cluster = $vmClusters[$vmname]
+            $line = "$timestamp,$cluster,$vmname,$vmdisk,$ds,$readios,$writeios"
+            Add-Content -Path $file -Value $line
+        }
+        return $interval
+    }
+
+    $interval = 20
+    For ($i = 1; $i -le $samples; $i++) {
+        Write-Host "Colectando muestra $i de $samples..." -ForegroundColor Gray
+        $interval = Collect-IOPS
+        if ($interval) { Start-Sleep -Seconds $interval }
+    }
+
+    # Procesar CSV y generar HTML
+    $iopsTableData = Import-Csv $file | Group-Object -Property VM | ForEach-Object {
+        [PSCustomObject]@{
+            VMName = $_.Name
+            Cluster = ($_.Group | Select-Object -First 1).Cluster
+            Datastore = ($_.Group | Select-Object -First 1).Datastore
+            TotalReadIOPS = ($_.Group.ReadIOPS | Measure-Object -Sum).Sum
+            TotalWriteIOPS = ($_.Group.WriteIOPS | Measure-Object -Sum).Sum
+            TotalIOPS = ($_.Group.ReadIOPS | Measure-Object -Sum).Sum + ($_.Group.WriteIOPS | Measure-Object -Sum).Sum
+        }
+    } | Sort-Object -Property TotalIOPS -Descending
+    $iopsChartData = $iopsTableData | Select-Object -First 10
+    $labels = ($iopsChartData | ForEach-Object { '"' + $_.VMName + '"' }) -join ","
+    $data = ($iopsChartData | ForEach-Object { $_.TotalIOPS }) -join ","
+    $htmlContent = @"
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Top Máquinas Virtuales por IOPS</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #fafbfc; }
+        h1 { color: #222; margin-top: 30px; }
+        table { margin: 20px auto; border-collapse: collapse; width: 90%; background: #fff; box-shadow: 0 2px 8px #e0e0e0; }
+        th, td { padding: 10px; border: 1px solid #bfc9d1; text-align: center; }
+        th { background: #1976d2; color: #fff; font-weight: bold; }
+        tr:nth-child(even) { background: #f4f8fb; }
+        tr:hover { background: #e3f2fd; }
+        #iopsChart { max-width: 900px; margin: 20px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; }
+    </style>
+</head>
+<body>
+    <h1>Top 10 Máquinas Virtuales por Consumo de IOPS (1 hora)</h1>
+    <canvas id='iopsChart' width='900' height='400'></canvas>
+    <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var ctx = document.getElementById('iopsChart').getContext('2d');
+            var chartData = {
+                labels: [$labels],
+                datasets: [{
+                    label: 'Total IOPS por Máquina Virtual',
+                    data: [$data],
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            };
+            new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { title: { display: true, text: 'Máquinas Virtuales' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'IOPS Totales' } }
+                    }
+                }
+            });
+        });
+    </script>
+    <h2>Detalle de IOPS de Todas las Máquinas Virtuales</h2>
+    <table>
+        <thead>
+            <tr><th>VM</th><th>Cluster</th><th>Datastore</th><th>IOPS Totales</th><th>Lectura</th><th>Escritura</th></tr>
+        </thead>
+        <tbody>
+"@
+    $iopsTableData | ForEach-Object {
+        $htmlContent += "<tr><td>$($_.VMName)</td><td>$($_.Cluster)</td><td>$($_.Datastore)</td><td>$($_.TotalIOPS)</td><td>$($_.TotalReadIOPS)</td><td>$($_.TotalWriteIOPS)</td></tr>"
+    }
+    $htmlContent += @"
+        </tbody>
+    </table>
+</body>
+</html>
+"@
+    Set-Content -Path $htmlOutput -Value $htmlContent
+    Write-Host "Informe HTML detallado de IOPS generado en $htmlOutput" -ForegroundColor Green
+    # Abrir el informe en el navegador automáticamente
+    try {
+        Start-Process $htmlOutput
+        Write-Host "Informe de IOPS abierto en el navegador." -ForegroundColor Green
+    } catch {
+        Write-Host "No se pudo abrir el informe de IOPS automáticamente. Ábrelo manualmente en: $htmlOutput" -ForegroundColor Yellow
+    }
+}
+# --- FIN FUNCIÓN IOPS DETALLADO ---
+
+# Generar siempre el informe detallado de IOPS y mostrar progreso
+Write-Host 'Iniciando generación del informe detallado de IOPS por 1 hora...' -ForegroundColor Cyan
+Generar-Informe-IOPS-Detallado -directorio $directorio 
