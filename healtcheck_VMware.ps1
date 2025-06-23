@@ -177,7 +177,7 @@ $html = @"
     th { background: #1976d2; color: #fff; font-weight: bold; }
     tr:nth-child(even) { background: #f4f8fb; }
     tr:hover { background: #e3f2fd; }
-    canvas { display: block; margin: 0 auto 40px auto; max-width: 700px; max-height: 350px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; }
+    canvas { display: block; margin: 0 auto 40px auto; max-width: 900px; max-height: 400px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #e0e0e0; }
 </style>
 </head>
 <body>
@@ -185,19 +185,19 @@ $html = @"
 <p>Generado el $(Get-Date -Format 'yyyy-MM-dd HH:mm')</p>
 
 $(Generar-TablaHtml 'Top 10 CPU Ready (ms)' $topCPU 'VM' 'CPUReady')
-<canvas id='cpuChart'></canvas>
+<canvas id='cpuChart' width='900' height='400'></canvas>
 
 $(Generar-TablaHtml 'Top 10 RAM Asignada (MB)' $topRAMAsignada 'VM' 'RAM_Asignada')
-<canvas id='ramAsignadaChart'></canvas>
+<canvas id='ramAsignadaChart' width='900' height='400'></canvas>
 
 $(Generar-TablaHtml 'Top 10 RAM Consumida (MB)' $topRAMConsumida 'VM' 'RAM_Consumida')
-<canvas id='ramConsumidaChart'></canvas>
+<canvas id='ramConsumidaChart' width='900' height='400'></canvas>
 
 $(Generar-TablaHtml 'Top 10 Consumo de Red (KBps)' $topNet 'VM' 'NetUsage')
-<canvas id='netChart'></canvas>
+<canvas id='netChart' width='900' height='400'></canvas>
 
 $(Generar-TablaHtml 'Top 10 IOPS' $topIOPS 'VM' 'IOPS')
-<canvas id='iopsChart'></canvas>
+<canvas id='iopsChart' width='900' height='400'></canvas>
 
 <script>
 // Declarar los datos como variables JS
