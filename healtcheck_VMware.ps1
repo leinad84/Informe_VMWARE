@@ -7,6 +7,31 @@ if (-not (Get-Module -ListAvailable -Name VMware.VimAutomation.Core)) {
 Import-Module VMware.VimAutomation.Core -ErrorAction Stop
 Write-Host 'PowerCLI listo.' -ForegroundColor Green
 
+# --- BLOQUE DE LIMPIEZA Y REINSTALACIÓN DE POWERCLI ---
+Write-Host 'Verificando módulos de PowerCLI requeridos...' -ForegroundColor Cyan
+$modulosRequeridos = @('VMware.VimAutomation.Core', 'VMware.VimAutomation.Common')
+$modulosFaltantes = $modulosRequeridos | Where-Object { -not (Get-Module -ListAvailable -Name $_) }
+if ($modulosFaltantes.Count -gt 0) {
+    Write-Host 'Faltan módulos de PowerCLI o la instalación está corrupta. Procediendo a limpiar e instalar de nuevo...' -ForegroundColor Yellow
+    # Intentar quitar módulos cargados
+    Remove-Module VMware.* -ErrorAction SilentlyContinue
+    # Eliminar módulos antiguos/corruptos
+    Get-Module -ListAvailable VMware.* | ForEach-Object {
+        try {
+            Remove-Item -Recurse -Force $_.ModuleBase -ErrorAction Stop
+            Write-Host "Módulo eliminado: $($_.Name)" -ForegroundColor DarkYellow
+        } catch {
+            Write-Host "No se pudo eliminar el módulo: $($_.Name)" -ForegroundColor Red
+        }
+    }
+    # Reinstalar PowerCLI
+    Install-Module -Name VMware.PowerCLI -Scope CurrentUser -Force -AllowClobber
+    Write-Host 'PowerCLI reinstalado.' -ForegroundColor Green
+} else {
+    Write-Host 'Todos los módulos requeridos de PowerCLI están presentes.' -ForegroundColor Green
+}
+# --- FIN BLOQUE LIMPIEZA ---
+
 # Solicitar credenciales con popup
 Write-Host 'Solicitando credenciales de vCenter/ESXi...' -ForegroundColor Cyan
 $cred = Get-Credential -Message 'Introduce las credenciales de vCenter/ESXi'
