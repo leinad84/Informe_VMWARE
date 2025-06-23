@@ -188,6 +188,17 @@ $(Generar-TablaHtml 'Top 10 IOPS' $topIOPS 'VM' 'IOPS')
 <canvas id='iopsChart'></canvas>
 
 <script>
+var cpuLabels = $cpuLabels;
+var cpuData = $cpuData;
+var ramAsignadaLabels = $ramAsignadaLabels;
+var ramAsignadaData = $ramAsignadaData;
+var ramConsumidaLabels = $ramConsumidaLabels;
+var ramConsumidaData = $ramConsumidaData;
+var netLabels = $netLabels;
+var netData = $netData;
+var iopsLabels = $iopsLabels;
+var iopsData = $iopsData;
+
 function crearGrafica(id, labels, data, label) {
     new Chart(document.getElementById(id), {
         type: 'bar',
@@ -203,11 +214,11 @@ function crearGrafica(id, labels, data, label) {
     });
 }
 window.onload = function() {
-    crearGrafica('cpuChart', $cpuLabels, $cpuData, 'CPU Ready (ms)');
-    crearGrafica('ramAsignadaChart', $ramAsignadaLabels, $ramAsignadaData, 'RAM Asignada (MB)');
-    crearGrafica('ramConsumidaChart', $ramConsumidaLabels, $ramConsumidaData, 'RAM Consumida (MB)');
-    crearGrafica('netChart', $netLabels, $netData, 'Consumo de Red (KBps)');
-    crearGrafica('iopsChart', $iopsLabels, $iopsData, 'IOPS');
+    crearGrafica('cpuChart', cpuLabels, cpuData, 'CPU Ready (ms)');
+    crearGrafica('ramAsignadaChart', ramAsignadaLabels, ramAsignadaData, 'RAM Asignada (MB)');
+    crearGrafica('ramConsumidaChart', ramConsumidaLabels, ramConsumidaData, 'RAM Consumida (MB)');
+    crearGrafica('netChart', netLabels, netData, 'Consumo de Red (KBps)');
+    crearGrafica('iopsChart', iopsLabels, iopsData, 'IOPS');
 }
 </script>
 </body>
