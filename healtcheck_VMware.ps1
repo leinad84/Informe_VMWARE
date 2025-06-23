@@ -282,7 +282,7 @@ function Generar-Informe-IOPS-Detallado {
     Write-Host "Colectando $samples muestras de IOPS (1 hora)..." -ForegroundColor Cyan
 
     function Collect-IOPS {
-        $vms = Get-VM | Where-Object {$_.PowerState -eq "PoweredOn"}
+        $vms = Get-VM | Where-Object { $_.PowerState -eq "PoweredOn" -and -not ($_.Name -like 'vCLS*') }
         if ($vms.Count -eq 0) { Write-Host "No se encontraron máquinas virtuales encendidas."; return }
         $vmClusters = @{}
         foreach ($vm in $vms) {
