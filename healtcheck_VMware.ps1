@@ -110,8 +110,8 @@ $topNet = $metricas | Sort-Object -Property NetUsage -Descending | Select-Object
 $topIOPS = $metricas | Sort-Object -Property IOPS -Descending | Select-Object -First 10
 
 # Preparar datos para las gráficas en formato JS
-function Get-ChartLabels { param($coleccion) ($coleccion | ForEach-Object { '"' + $_.VM + '"' }) -join ',' }
-function Get-ChartData { param($coleccion, $col) ($coleccion | ForEach-Object { $_.$col }) -join ',' }
+function Get-ChartLabels { param($coleccion) '[' + ($coleccion | ForEach-Object { '"' + $_.VM + '"' }) -join ',' + ']' }
+function Get-ChartData { param($coleccion, $col) '[' + ($coleccion | ForEach-Object { $_.$col }) -join ',' + ']' }
 
 $cpuLabels = Get-ChartLabels $topCPU
 $cpuData = Get-ChartData $topCPU 'CPUReady'
@@ -167,10 +167,10 @@ function crearGrafica(id, labels, data, label) {
     new Chart(document.getElementById(id), {
         type: 'bar',
         data: {
-            labels: [labels],
+            labels: labels,
             datasets: [{
                 label: label,
-                data: [data],
+                data: data,
                 backgroundColor: 'rgba(54, 162, 235, 0.5)'
             }]
         },
